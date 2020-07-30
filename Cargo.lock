@@ -101,7 +101,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust_wasm"
+name = "rust-wasm-webgl"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
