@@ -1,12 +1,13 @@
 console.log("running app.js");
 
+/*jshint -W024 */
 const rust =
     import ('../pkg');
 
 const canvas = document.getElementById("rustCanvas");
 const gl = canvas.getContext("webgl", { antialias: true });
 
-rust.then(m => {
+rust.then(module => {
     if (!gl) {
         alert("Failed to initialize WebGL");
         return;
@@ -18,6 +19,8 @@ rust.then(m => {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     const FPS = 1000.0 / 60.0; // ms / frames
+    const rustClient = new module.Client();
+    const initialTime = Date.now();
     var lastDrawTime = -1;
 
     function render() {
@@ -38,6 +41,10 @@ rust.then(m => {
 
                 gl.viewport(0, 0, window.innerWidth, window.innerHeight);
             }
+
+            let elapsedTime = currTime - initialTime;
+            rustClient.update(elapsedTime, window.innerHeight, window.innerWidth);
+            rustClient.render();
         }
     }
 
