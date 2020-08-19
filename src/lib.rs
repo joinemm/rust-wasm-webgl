@@ -7,6 +7,7 @@ use web_sys::*;
 extern crate lazy_static;
 
 mod app_state;
+mod constants;
 mod programs;
 mod shaders;
 mod utils;
@@ -37,7 +38,6 @@ impl Client {
     pub fn new() -> Self {
         utils::set_panic_hook();
         let gl = webgl_setup::initialize_context().unwrap();
-        log("created new client");
         Self {
             program_color_2d: programs::color_2d::Color2D::new(&gl),
             program_color_2d_gradient: programs::color_2d_gradient::Color2DGradient::new(&gl),
@@ -54,22 +54,21 @@ impl Client {
     pub fn render(&self) {
         self.gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
         let curr_state = app_state::get_current_state();
-        // self.program_color_2d.render(
-        //     &self.gl,
-        //     curr_state.control_bottom,
-        //     curr_state.control_top,
-        //     curr_state.control_left,
-        //     curr_state.control_right,
-        //     curr_state.canvas_height,
-        //     curr_state.canvas_width,
-        // );
-
-        self.program_color_2d_gradient.render(
+        self.program_color_2d.render(
             &self.gl,
             curr_state.control_bottom,
             curr_state.control_top,
             curr_state.control_left,
             curr_state.control_right,
+            curr_state.canvas_height,
+            curr_state.canvas_width,
+        );
+        self.program_color_2d_gradient.render(
+            &self.gl,
+            curr_state.control_top - 200.,
+            curr_state.control_top - 10.,
+            curr_state.control_left + 10.,
+            curr_state.control_left + 200.,
             curr_state.canvas_height,
             curr_state.canvas_width,
         );
@@ -84,13 +83,13 @@ impl Client {
             curr_state.canvas_width,
             curr_state.rotation_x_axis,
             curr_state.rotation_y_axis,
+            &utils::get_updated_3d_y_values(curr_state.time),
         );
     }
 }
 
 #[wasm_bindgen(start)]
 pub fn main_js() -> Result<(), JsValue> {
-    log("Hello from rust!");
     utils::set_panic_hook();
     Ok(())
 }

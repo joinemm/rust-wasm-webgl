@@ -1,3 +1,4 @@
+use super::constants::*;
 use nalgebra::{Matrix4, Perspective3};
 use web_sys::WebGlRenderingContext as GL;
 use web_sys::*;
@@ -10,6 +11,82 @@ pub fn set_panic_hook() {
     // For more details see
     // https://github.com/rustwasm/console_error_panic_hook#readme
     console_error_panic_hook::set_once();
+}
+
+pub fn get_grid_normals(n: usize, y_vals: &Vec<f32>) -> Vec<f32> {
+    let points_per_row = n + 1;
+    let graph_layout_width: f32 = 2.;
+    let square_size: f32 = graph_layout_width / n as f32;
+    let mut return_var: Vec<f32> = vec![0.; 3 * points_per_row * points_per_row];
+
+    for z in 0..points_per_row {
+        for x in 0..points_per_row {
+            let y_val_index_a = z * points_per_row + x;
+            let return_var_start_index = 3 * y_val_index_a;
+
+            if z == n || x == n {
+                return_var[return_var_start_index + 1] = 1.; //default
+            } else {
+                let y_val_index_b = y_val_index_a + points_per_row;
+                let y_val_index_c = y_val_index_a + 1;
+
+                let x_val_1 = square_size * x as f32;
+                let x_val_2 = x_val_1 + square_size;
+
+                let z_val_1 = square_size * z as f32;
+                let z_val_2 = z_val_1 + square_size;
+
+                let normals = get_normal_vec(
+                    x_val_1,
+                    y_vals[y_val_index_a],
+                    z_val_1,
+                    x_val_1,
+                    y_vals[y_val_index_b],
+                    z_val_2,
+                    x_val_2,
+                    y_vals[y_val_index_c],
+                    z_val_2,
+                );
+
+                return_var[return_var_start_index + 0] = normals.0;
+                return_var[return_var_start_index + 1] = normals.1;
+                return_var[return_var_start_index + 2] = normals.2;
+            }
+        }
+    }
+
+    return_var
+}
+pub fn get_normal_vec(
+    point_a_x: f32,
+    point_a_y: f32,
+    point_a_z: f32,
+    point_b_x: f32,
+    point_b_y: f32,
+    point_b_z: f32,
+    point_c_x: f32,
+    point_c_y: f32,
+    point_c_z: f32,
+) -> (f32, f32, f32) {
+    let u_x = point_b_x - point_a_x;
+    let u_y = point_b_y - point_a_y;
+    let u_z = point_b_z - point_a_z;
+
+    let v_x = point_c_x - point_a_x;
+    let v_y = point_c_y - point_a_y;
+    let v_z = point_c_z - point_a_z;
+
+    let normal_x = u_y * v_z - v_y * u_z;
+    let normal_y = -1. * (u_x * v_z - v_x * u_z);
+    let normal_z = u_x * v_y - v_x * u_y;
+
+    let normal_size = (normal_x * normal_x + normal_y * normal_y + normal_z * normal_z).sqrt();
+
+    (
+        normal_x / normal_size,
+        normal_y / normal_size,
+        normal_z / normal_size,
+    )
 }
 
 fn compile_shader(
@@ -36,7 +113,32 @@ fn compile_shader(
     }
 }
 
-pub fn get_3d_projection_matrix(
+pub fn get_updated_3d_y_values(curr_time: f32) -> Vec<f32> {
+    let point_count_per_row = GRID_SIZE + 1;
+    let mut y_vals: Vec<f32> = vec![0.; point_count_per_row * point_count_per_row];
+    let half_grid: f32 = point_count_per_row as f32 / 2.;
+    let freq: f32 = 3. * std::f32::consts::PI;
+    let y_scale = 0.15;
+    let sin_offset = curr_time / 1000.; // speed
+
+    for z in 0..point_count_per_row {
+        for x in 0..point_count_per_row {
+            let use_y_index = z * point_count_per_row + x;
+            let scaled_x = freq * (x as f32 - half_grid) / half_grid;
+            let scaled_z = freq * (z as f32 - half_grid) / half_grid;
+            y_vals[use_y_index] =
+                y_scale * ((scaled_x * scaled_x + scaled_z * scaled_z).sqrt() + sin_offset).sin();
+        }
+    }
+    y_vals
+}
+
+pub struct Matrices3D {
+    pub projection: [f32; 16],
+    pub normals_rotation: [f32; 16],
+}
+
+pub fn get_3d_matrices(
     bottom: f32,
     top: f32,
     left: f32,
@@ -45,12 +147,11 @@ pub fn get_3d_projection_matrix(
     canvas_width: f32,
     rotation_angle_x: f32,
     rotation_angle_y: f32,
-) -> [f32; 16] {
-    const FOV: f32 = 45. * std::f32::consts::PI / 180.; // in radians
-    const Z_FAR: f32 = 100.;
-    const Z_NEAR: f32 = 0.1;
-    const Z_PLANE: f32 = -2.414213; // -1 / tan(pi/8)
-
+) -> Matrices3D {
+    let mut return_var = Matrices3D {
+        normals_rotation: [0.; 16],
+        projection: [0.; 16],
+    };
     let rotate_x_axis: [f32; 16] = [
         1.,
         0.,
@@ -109,7 +210,35 @@ pub fn get_3d_projection_matrix(
     let mut perspective: [f32; 16] = [0.; 16];
     perspective.copy_from_slice(perspective_matrix.as_matrix().as_slice());
 
-    mult_matrix_4(combined_transform, perspective)
+    return_var.projection = mult_matrix_4(combined_transform, perspective);
+
+    let normal_matrix = Matrix4::new(
+        rotation_matrix[0],
+        rotation_matrix[1],
+        rotation_matrix[2],
+        rotation_matrix[3],
+        rotation_matrix[4],
+        rotation_matrix[5],
+        rotation_matrix[6],
+        rotation_matrix[7],
+        rotation_matrix[8],
+        rotation_matrix[9],
+        rotation_matrix[10],
+        rotation_matrix[11],
+        rotation_matrix[12],
+        rotation_matrix[13],
+        rotation_matrix[14],
+        rotation_matrix[15],
+    );
+
+    match normal_matrix.try_inverse() {
+        Some(inv) => {
+            return_var.normals_rotation.copy_from_slice(inv.as_slice());
+        }
+        None => {}
+    }
+
+    return_var
 }
 
 pub fn get_position_grid(n: usize) -> (Vec<f32>, Vec<u16>) {

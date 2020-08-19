@@ -59,7 +59,7 @@ impl AppState {
             mouse_down: false,
             mouse_x: -1.,
             mouse_y: -1.,
-            rotation_x_axis: -0.5,
+            rotation_x_axis: -0.6,
             rotation_y_axis: -0.5,
             time: 0.,
         }
@@ -93,8 +93,8 @@ pub fn update_mouse_position(x: f32, y: f32) {
     *data = Arc::new(AppState {
         mouse_x: x,
         mouse_y: y,
-        rotation_x_axis: data.rotation_x_axis + rotation_x_delta,
-        rotation_y_axis: data.rotation_y_axis + rotation_y_delta,
+        rotation_x_axis: data.rotation_x_axis - rotation_x_delta,
+        rotation_y_axis: data.rotation_y_axis - rotation_y_delta,
         ..*data.clone()
     })
 }
