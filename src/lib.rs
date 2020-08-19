@@ -1,7 +1,6 @@
 extern crate wasm_bindgen;
 use wasm_bindgen::prelude::*;
 use web_sys::WebGlRenderingContext as GL;
-use web_sys::*;
 
 #[macro_use]
 extern crate lazy_static;
@@ -54,6 +53,7 @@ impl Client {
     pub fn render(&self) {
         self.gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
         let curr_state = app_state::get_current_state();
+
         self.program_color_2d.render(
             &self.gl,
             curr_state.control_bottom,
@@ -63,6 +63,7 @@ impl Client {
             curr_state.canvas_height,
             curr_state.canvas_width,
         );
+
         self.program_color_2d_gradient.render(
             &self.gl,
             curr_state.control_top - 200.,
